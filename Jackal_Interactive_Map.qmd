@@ -1,0 +1,73 @@
+---
+title: "Jackal Interactive Map"
+format: html
+editor: visual
+---
+
+## Exploring the distribution of two jackal species in Southern Africa
+
+This is an exercise to practice using GIS. I will be using point observation data from iNaturalist to plot the distribution of the two jackal species found in Southern Africa: the black-backed jackal (Lupulella mesomalas) and the side-striped jackal (Lupulella adusta).
+
+## Preparing the dataset
+
+Call in the necessary packages
+
+```{r}
+packages <- c("rinat", "sf", "tidyverse", "ggspatial", "htmltools", "mapview", "leafpop")
+lapply(packages, library, character.only = TRUE)
+```
+
+Call necessary data from iNaturalist for both jackal species.
+
+```{r}
+lm <- get_inat_obs(taxon_name = "Lupulella mesomelas",
+                   bounds = c(-36, 10, -11, 42),
+                   maxresults = 1000)
+la <- get_inat_obs(taxon_name = "Lupulella adusta",
+                   bounds = c(-36, 10, -11, 42),
+                   maxresults = 1000)
+```
+
+Combine into one dataframe
+
+```{r}
+lup <- rbind(lm,la)
+```
+
+Filter observations by attribute criteria
+
+```{r}
+lup <- lup %>% filter(positional_accuracy<46 & 
+                        latitude<0 &
+                        !is.na(latitude) &
+                        quality_grade == "research")
+```
+
+Create new column so observations recorded as a subspecies just have genus and species name
+
+```{r}
+lup <- lup %>%
+  mutate(species = word(scientific_name, 1, 2))
+```
+
+Make the dataframe a spatial object of class = "sf" and set coordinate reference system (CRS)
+
+```{r}
+lup <- st_as_sf(lup, coords = c("longitude", "latitude"), crs = 4326)
+```
+
+Plot interactive map with html links to iNaturalist records
+
+```{r}
+llup <- lup %>%
+  mutate(click_url = paste("<b><a href='", url, "'>Link to iNat observation</a></b>"))
+
+mapview(lup, 
+        zcol = "species",
+        col.regions = c("darkcyan", "orangered3"),
+        legend = TRUE,
+        layer.name = "Jackal species",
+        popup = 
+          popupTable(llup,
+                     zcol = c("user_login", "click_url")))
+```
